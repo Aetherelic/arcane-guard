@@ -1,0 +1,11 @@
+pkgname=hello-clean
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Clean example package for Arcane Guard"
+arch=('any')
+license=('MIT')
+source=()
+
+package() {
+  install -Dm755 hello "$pkgdir/usr/bin/hello-clean"
+}
