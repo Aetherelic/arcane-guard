@@ -6,6 +6,7 @@ import sys
 
 from . import __version__
 from .scanner import Finding, inspect_pkgbuild
+from .aur import inspect_aur_package
 
 
 RESET = "\033[0m"
@@ -78,6 +79,10 @@ def print_report(report: dict) -> None:
     print(f"{colour('Risk:', BOLD)} {colour(risk.upper(), severity_colour(risk))}")
     print(f"{colour('File:', BOLD)} {report['path']}")
 
+    if report.get("aur_package"):
+        print(f"{colour('AUR package:', BOLD)} {report['aur_package']}")
+        print(f"{colour('AUR URL:', BOLD)} {report['aur_url']}")
+
     if report.get("install_script"):
         print(f"{colour('Install script:', BOLD)} {report['install_script']}")
 
@@ -116,14 +121,8 @@ def print_report(report: dict) -> None:
     print()
 
 
-def command_guard_inspect(args: argparse.Namespace) -> int:
-    try:
-        report = inspect_pkgbuild(args.path)
-    except Exception as error:
-        print(f"arcane: error: {error}", file=sys.stderr)
-        return 1
-
-    if args.json:
+def output_report(report: dict, as_json: bool) -> None:
+    if args_json := as_json:
         json_report = {
             "path": report["path"],
             "metadata": report["metadata"],
@@ -131,10 +130,35 @@ def command_guard_inspect(args: argparse.Namespace) -> int:
             "risk": report["risk"],
             "findings": [finding_to_dict(f) for f in report["findings"]],
         }
+
+        if "aur_package" in report:
+            json_report["aur_package"] = report["aur_package"]
+            json_report["aur_url"] = report["aur_url"]
+
         print(json.dumps(json_report, indent=2))
     else:
         print_report(report)
 
+
+def command_guard_inspect(args: argparse.Namespace) -> int:
+    try:
+        report = inspect_pkgbuild(args.path)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    output_report(report, args.json)
+    return 0
+
+
+def command_guard_inspect_aur(args: argparse.Namespace) -> int:
+    try:
+        report = inspect_aur_package(args.package)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    output_report(report, args.json)
     return 0
 
 
@@ -159,6 +183,11 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("path", help="Path to a PKGBUILD")
     inspect.add_argument("--json", action="store_true", help="Output report as JSON")
     inspect.set_defaults(func=command_guard_inspect)
+
+    inspect_aur = guard_subparsers.add_parser("inspect-aur", help="Inspect a package from the AUR")
+    inspect_aur.add_argument("package", help="AUR package name")
+    inspect_aur.add_argument("--json", action="store_true", help="Output report as JSON")
+    inspect_aur.set_defaults(func=command_guard_inspect_aur)
 
     return parser
 
