@@ -48,6 +48,7 @@ def inspect_aur_package(name: str) -> dict:
             raise FileNotFoundError(f"AUR package '{name}' does not contain a PKGBUILD")
 
         report = inspect_pkgbuild(str(pkgbuild))
+        report["kind"] = "aur"
         report["aur_package"] = name
         report["aur_url"] = url
 

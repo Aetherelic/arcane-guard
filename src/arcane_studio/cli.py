@@ -5,8 +5,9 @@ import json
 import sys
 
 from . import __version__
-from .scanner import Finding, inspect_pkgbuild
 from .aur import inspect_aur_package
+from .scanner import Finding, inspect_pkgbuild
+from .script import inspect_script
 
 
 RESET = "\033[0m"
@@ -56,26 +57,47 @@ def finding_to_dict(finding: Finding) -> dict:
     }
 
 
+def report_to_json(report: dict) -> dict:
+    data = {
+        "kind": report.get("kind", "pkgbuild"),
+        "path": report["path"],
+        "metadata": report["metadata"],
+        "install_script": report["install_script"],
+        "risk": report["risk"],
+        "findings": [finding_to_dict(f) for f in report["findings"]],
+    }
+
+    if "aur_package" in report:
+        data["aur_package"] = report["aur_package"]
+        data["aur_url"] = report["aur_url"]
+
+    return data
+
+
 def print_report(report: dict) -> None:
     metadata = report["metadata"]
-    findings = report["findings"]
+    findings: list[Finding] = report["findings"]
     risk = report["risk"]
+    kind = report.get("kind", "pkgbuild")
 
     print()
     print(colour("Arcane Guard Report", BOLD + MAGENTA))
     print(colour("━━━━━━━━━━━━━━━━━━━", MAGENTA))
     print()
 
-    pkgname = metadata.get("pkgname", "unknown")
-    pkgver = metadata.get("pkgver", "unknown")
-    pkgdesc = metadata.get("pkgdesc", "").strip("'\"")
+    name = metadata.get("pkgname", "unknown")
+    version = metadata.get("pkgver", "unknown")
+    description = metadata.get("pkgdesc", "").strip("'\"")
 
-    print(f"{colour('Package:', BOLD)} {pkgname}")
-    print(f"{colour('Version:', BOLD)} {pkgver}")
+    label = "Target" if kind == "script" else "Package"
 
-    if pkgdesc:
-        print(f"{colour('Description:', BOLD)} {pkgdesc}")
+    print(f"{colour(label + ':', BOLD)} {name}")
+    print(f"{colour('Version:', BOLD)} {version}")
 
+    if description:
+        print(f"{colour('Description:', BOLD)} {description}")
+
+    print(f"{colour('Type:', BOLD)} {kind}")
     print(f"{colour('Risk:', BOLD)} {colour(risk.upper(), severity_colour(risk))}")
     print(f"{colour('File:', BOLD)} {report['path']}")
 
@@ -91,7 +113,7 @@ def print_report(report: dict) -> None:
     if not findings:
         print(colour("✓ No obvious risky patterns found.", GREEN))
         print()
-        print(colour("Note:", BOLD), "This does not prove the package is safe. It only means Arcane Guard did not detect obvious red flags.")
+        print(colour("Note:", BOLD), "This does not prove it is safe. It only means Arcane Guard did not detect obvious red flags.")
         print()
         return
 
@@ -112,30 +134,18 @@ def print_report(report: dict) -> None:
     print(colour("───────", DIM))
 
     if risk in {"critical", "high"}:
-        print("This package contains patterns that should be reviewed carefully before building or installing.")
+        print("This target contains patterns that should be reviewed carefully before running, building, or installing.")
     elif risk == "medium":
-        print("This package has some suspicious or review-worthy patterns, but nothing automatically proves it is malicious.")
+        print("This target has suspicious or review-worthy patterns, but nothing automatically proves it is malicious.")
     else:
-        print("This package has minor review notes only.")
+        print("This target has minor review notes only.")
 
     print()
 
 
 def output_report(report: dict, as_json: bool) -> None:
-    if args_json := as_json:
-        json_report = {
-            "path": report["path"],
-            "metadata": report["metadata"],
-            "install_script": report["install_script"],
-            "risk": report["risk"],
-            "findings": [finding_to_dict(f) for f in report["findings"]],
-        }
-
-        if "aur_package" in report:
-            json_report["aur_package"] = report["aur_package"]
-            json_report["aur_url"] = report["aur_url"]
-
-        print(json.dumps(json_report, indent=2))
+    if as_json:
+        print(json.dumps(report_to_json(report), indent=2))
     else:
         print_report(report)
 
@@ -154,6 +164,17 @@ def command_guard_inspect(args: argparse.Namespace) -> int:
 def command_guard_inspect_aur(args: argparse.Namespace) -> int:
     try:
         report = inspect_aur_package(args.package)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    output_report(report, args.json)
+    return 0
+
+
+def command_guard_inspect_script(args: argparse.Namespace) -> int:
+    try:
+        report = inspect_script(args.path)
     except Exception as error:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
@@ -188,6 +209,11 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_aur.add_argument("package", help="AUR package name")
     inspect_aur.add_argument("--json", action="store_true", help="Output report as JSON")
     inspect_aur.set_defaults(func=command_guard_inspect_aur)
+
+    inspect_script_parser = guard_subparsers.add_parser("inspect-script", help="Inspect a local shell/install script")
+    inspect_script_parser.add_argument("path", help="Path to a script")
+    inspect_script_parser.add_argument("--json", action="store_true", help="Output report as JSON")
+    inspect_script_parser.set_defaults(func=command_guard_inspect_script)
 
     return parser
 
