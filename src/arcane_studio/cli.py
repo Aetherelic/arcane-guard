@@ -10,6 +10,7 @@ from .directory import inspect_directory
 from .directory import inspect_directory
 from .scanner import Finding, inspect_pkgbuild
 from .script import inspect_script
+from .themes import list_snapshots, snapshot_current, status as themes_status
 
 
 RESET = "\033[0m"
@@ -249,6 +250,80 @@ def command_guard_inspect_dir(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def command_themes_status(args: argparse.Namespace) -> int:
+    report = themes_status()
+
+    print()
+    print(colour("Arcane Themes Status", BOLD + MAGENTA))
+    print(colour("━━━━━━━━━━━━━━━━━━━━", MAGENTA))
+    print()
+    print(f"{colour('State dir:', BOLD)} {report['state_dir']}")
+    print(f"{colour('Snapshot dir:', BOLD)} {report['snapshot_dir']}")
+    print()
+    print(colour("Managed targets", BOLD))
+    print(colour("───────────────", DIM))
+
+    for target in report["targets"]:
+        icon = "✓" if target["exists"] else "·"
+        kind = target["kind"]
+        print(f"{icon} {target['path']} [{kind}]")
+
+    print()
+    return 0
+
+
+def command_themes_snapshot(args: argparse.Namespace) -> int:
+    try:
+        result = snapshot_current(args.name)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    print()
+    print(colour("Arcane Themes Snapshot", BOLD + MAGENTA))
+    print(colour("━━━━━━━━━━━━━━━━━━━━━━", MAGENTA))
+    print()
+    print(f"{colour('Snapshot:', BOLD)} {result['snapshot']}")
+    print(f"{colour('Path:', BOLD)} {result['path']}")
+    print()
+    print(f"{colour('Copied:', BOLD)} {len(result['copied'])}")
+    for item in result["copied"]:
+        print(f"✓ {item['path']} [{item['kind']}]")
+
+    if result["skipped"]:
+        print()
+        print(f"{colour('Skipped:', BOLD)} {len(result['skipped'])}")
+        for item in result["skipped"]:
+            print(f"· {item['path']} [{item['reason']}]")
+
+    print()
+    return 0
+
+
+def command_themes_list(args: argparse.Namespace) -> int:
+    snapshots = list_snapshots()
+
+    print()
+    print(colour("Arcane Themes Snapshots", BOLD + MAGENTA))
+    print(colour("━━━━━━━━━━━━━━━━━━━━━━", MAGENTA))
+    print()
+
+    if not snapshots:
+        print("No snapshots found.")
+        print()
+        return 0
+
+    for snapshot in snapshots:
+        print(f"{colour(snapshot['name'], BOLD)}")
+        print(f"  Created: {snapshot['created_at']}")
+        print(f"  Copied:  {snapshot['copied_count']}")
+        print(f"  Skipped: {snapshot['skipped_count']}")
+        print(f"  Path:    {snapshot['path']}")
+        print()
+
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="arcane",
@@ -265,6 +340,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     guard = subparsers.add_parser("guard", help="Arcane Guard package/script safety tools")
     guard_subparsers = guard.add_subparsers(dest="guard_command")
+
+
+    themes = subparsers.add_parser("themes", help="Arcane Themes rice/theme management tools")
+    themes_subparsers = themes.add_subparsers(dest="themes_command")
+
+    themes_status_parser = themes_subparsers.add_parser("status", help="Show managed theme targets")
+    themes_status_parser.set_defaults(func=command_themes_status)
+
+    themes_snapshot_parser = themes_subparsers.add_parser("snapshot", help="Snapshot current rice/theme configs")
+    themes_snapshot_parser.add_argument("--name", help="Optional snapshot name")
+    themes_snapshot_parser.set_defaults(func=command_themes_snapshot)
+
+    themes_list_parser = themes_subparsers.add_parser("list", help="List Arcane Themes snapshots")
+    themes_list_parser.set_defaults(func=command_themes_list)
+
 
     inspect = guard_subparsers.add_parser("inspect", help="Inspect a local PKGBUILD")
     inspect.add_argument("path", help="Path to a PKGBUILD")
