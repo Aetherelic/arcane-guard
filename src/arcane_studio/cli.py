@@ -21,6 +21,13 @@ BLUE = "\033[34m"
 GREEN = "\033[32m"
 MAGENTA = "\033[35m"
 
+SEVERITY_RANK = {
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+    "critical": 4,
+}
+
 
 def colour(text: str, code: str) -> str:
     if not sys.stdout.isatty():
@@ -92,6 +99,14 @@ def format_counts(counts: dict) -> str:
             parts.append(f"{count} {severity}")
 
     return ", ".join(parts) if parts else "0 findings"
+
+
+def should_fail(report: dict, fail_on: str | None) -> bool:
+    if not fail_on:
+        return False
+
+    risk = report.get("risk", "low")
+    return SEVERITY_RANK.get(risk, 0) >= SEVERITY_RANK[fail_on]
 
 
 def print_guard_report(report: dict) -> None:
@@ -189,6 +204,17 @@ def output_guard_report(report: dict, as_json: bool) -> None:
         print_guard_report(report)
 
 
+def finish_guard_command(report: dict, args: argparse.Namespace) -> int:
+    output_guard_report(report, args.json)
+
+    if should_fail(report, args.fail_on):
+        if not args.json:
+            print(f"arcane: failing because risk is {report['risk']} and --fail-on is {args.fail_on}", file=sys.stderr)
+        return 2
+
+    return 0
+
+
 def command_guard_inspect(args: argparse.Namespace) -> int:
     try:
         report = inspect_pkgbuild(args.path)
@@ -196,8 +222,7 @@ def command_guard_inspect(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_guard_report(report, args.json)
-    return 0
+    return finish_guard_command(report, args)
 
 
 def command_guard_inspect_aur(args: argparse.Namespace) -> int:
@@ -207,8 +232,7 @@ def command_guard_inspect_aur(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_guard_report(report, args.json)
-    return 0
+    return finish_guard_command(report, args)
 
 
 def command_guard_inspect_script(args: argparse.Namespace) -> int:
@@ -218,8 +242,7 @@ def command_guard_inspect_script(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_guard_report(report, args.json)
-    return 0
+    return finish_guard_command(report, args)
 
 
 def command_guard_inspect_dir(args: argparse.Namespace) -> int:
@@ -229,8 +252,7 @@ def command_guard_inspect_dir(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_guard_report(report, args.json)
-    return 0
+    return finish_guard_command(report, args)
 
 
 def command_themes_status(args: argparse.Namespace) -> int:
@@ -361,6 +383,15 @@ def command_themes_restore(args: argparse.Namespace) -> int:
     return 0
 
 
+def add_guard_common_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--json", action="store_true", help="Output report as JSON")
+    parser.add_argument(
+        "--fail-on",
+        choices=["low", "medium", "high", "critical"],
+        help="Exit with code 2 if risk is at least this severity",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="arcane",
@@ -375,22 +406,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect = guard_subparsers.add_parser("inspect", help="Inspect a local PKGBUILD")
     inspect.add_argument("path", help="Path to a PKGBUILD")
-    inspect.add_argument("--json", action="store_true", help="Output report as JSON")
+    add_guard_common_args(inspect)
     inspect.set_defaults(func=command_guard_inspect)
 
     inspect_aur = guard_subparsers.add_parser("inspect-aur", help="Inspect a package from the AUR")
     inspect_aur.add_argument("package", help="AUR package name")
-    inspect_aur.add_argument("--json", action="store_true", help="Output report as JSON")
+    add_guard_common_args(inspect_aur)
     inspect_aur.set_defaults(func=command_guard_inspect_aur)
 
     inspect_script_parser = guard_subparsers.add_parser("inspect-script", help="Inspect a local shell/install script")
     inspect_script_parser.add_argument("path", help="Path to a script")
-    inspect_script_parser.add_argument("--json", action="store_true", help="Output report as JSON")
+    add_guard_common_args(inspect_script_parser)
     inspect_script_parser.set_defaults(func=command_guard_inspect_script)
 
     inspect_dir_parser = guard_subparsers.add_parser("inspect-dir", help="Inspect a directory for PKGBUILDs and install scripts")
     inspect_dir_parser.add_argument("path", help="Path to a directory")
-    inspect_dir_parser.add_argument("--json", action="store_true", help="Output report as JSON")
+    add_guard_common_args(inspect_dir_parser)
     inspect_dir_parser.set_defaults(func=command_guard_inspect_dir)
 
     themes = subparsers.add_parser("themes", help="Arcane Themes rice/theme management tools")
