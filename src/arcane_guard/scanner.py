@@ -36,10 +36,42 @@ COMMAND_RULES: list[tuple[str, str, str, re.Pattern[str], str]] = [
     ),
     (
         "critical",
+        "dangerous-cd-home-then-rm",
+        "Changes into the home directory and then recursively deletes the current directory.",
+        re.compile(
+            r"\bcd\s+['\"]?(?:~|\$HOME|\$\{HOME\})['\"]?\s*&&\s*rm\b"
+            r"(?=[^#\n]*(?:-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive))"
+            r"(?=[^#\n]*(?:-[a-zA-Z]*f|--force))",
+            re.I,
+        ),
+        "This can delete the user's home directory. Stop and review the script carefully.",
+    ),
+    (
+        "critical",
         "dangerous-rm",
         "Potentially dangerous recursive deletion command.",
-        re.compile(r"rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-rf|-fr)\s+(/|\$HOME|~|\${HOME})", re.I),
+        re.compile(
+            r"\brm\b"
+            r"(?=[^#\n]*(?:-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive))"
+            r"(?=[^#\n]*(?:-[a-zA-Z]*f|--force))"
+            r"[^#\n]*(?:['\"]?(?:/|~|\$HOME|\$\{HOME\}|\.)['\"]?)(?:\s|$|[;&|])",
+            re.I,
+        ),
         "Check that deletion targets are scoped to $srcdir, $pkgdir, or a temporary build directory.",
+    ),
+    (
+        "critical",
+        "dangerous-find-delete-home",
+        "Uses find -delete against a home or root-like target.",
+        re.compile(r"\bfind\s+['\"]?(?:~|\$HOME|\$\{HOME\}|/)['\"]?[^#\n]*\s-delete\b", re.I),
+        "find -delete can remove many files quickly. Verify the target is not a user or system directory.",
+    ),
+    (
+        "high",
+        "dangerous-find-delete-current",
+        "Uses find -delete against the current directory.",
+        re.compile(r"\bfind\s+['\"]?\.['\"]?[^#\n]*\s-delete\b", re.I),
+        "find . -delete may be legitimate in build directories, but it can be destructive in install scripts.",
     ),
     (
         "high",
