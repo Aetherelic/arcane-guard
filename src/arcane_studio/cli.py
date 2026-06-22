@@ -6,6 +6,7 @@ import sys
 
 from . import __version__
 from .aur import inspect_aur_package
+from .directory import inspect_directory
 from .scanner import Finding, inspect_pkgbuild
 from .script import inspect_script
 
@@ -74,6 +75,10 @@ def report_to_json(report: dict) -> dict:
         data["aur_package"] = report["aur_package"]
         data["aur_url"] = report["aur_url"]
 
+    if "scanned_files" in report:
+        data["scanned_files"] = report["scanned_files"]
+        data["errors"] = report.get("errors", [])
+
     return data
 
 
@@ -108,7 +113,7 @@ def print_report(report: dict) -> None:
     version = metadata.get("pkgver", "unknown")
     description = metadata.get("pkgdesc", "").strip("'\"")
 
-    label = "Target" if kind == "script" else "Package"
+    label = "Target" if kind in {"script", "directory"} else "Package"
 
     print(f"{colour(label + ':', BOLD)} {name}")
     print(f"{colour('Version:', BOLD)} {version}")
@@ -129,7 +134,24 @@ def print_report(report: dict) -> None:
     if report.get("install_script"):
         print(f"{colour('Install script:', BOLD)} {report['install_script']}")
 
+    if "scanned_files" in report:
+        print(f"{colour('Scanned files:', BOLD)} {len(report['scanned_files'])}")
+
     print()
+
+    if report.get("scanned_files"):
+        print(colour("Scanned", BOLD))
+        print(colour("───────", DIM))
+        for scanned in report["scanned_files"]:
+            print(f"• {scanned}")
+        print()
+
+    if report.get("errors"):
+        print(colour("Errors", BOLD))
+        print(colour("──────", DIM))
+        for error in report["errors"]:
+            print(f"• {error}")
+        print()
 
     if not findings:
         print(colour("✓ No obvious risky patterns found.", GREEN))
@@ -204,6 +226,17 @@ def command_guard_inspect_script(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_guard_inspect_dir(args: argparse.Namespace) -> int:
+    try:
+        report = inspect_directory(args.path)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    output_report(report, args.json)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="arcane",
@@ -235,6 +268,11 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_script_parser.add_argument("path", help="Path to a script")
     inspect_script_parser.add_argument("--json", action="store_true", help="Output report as JSON")
     inspect_script_parser.set_defaults(func=command_guard_inspect_script)
+
+    inspect_dir_parser = guard_subparsers.add_parser("inspect-dir", help="Inspect a directory for PKGBUILDs and install scripts")
+    inspect_dir_parser.add_argument("path", help="Path to a directory")
+    inspect_dir_parser.add_argument("--json", action="store_true", help="Output report as JSON")
+    inspect_dir_parser.set_defaults(func=command_guard_inspect_dir)
 
     return parser
 
