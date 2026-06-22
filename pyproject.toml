@@ -5,7 +5,8 @@ description = "Safe customization tools for aesthetic Linux desktops."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Arcane Studio" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 
 [project.scripts]
 arcane = "arcane_studio.cli:main"
