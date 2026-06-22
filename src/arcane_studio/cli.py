@@ -7,6 +7,7 @@ import sys
 from . import __version__
 from .aur import inspect_aur_package
 from .directory import inspect_directory
+from .directory import inspect_directory
 from .scanner import Finding, inspect_pkgbuild
 from .script import inspect_script
 
@@ -218,6 +219,17 @@ def command_guard_inspect_aur(args: argparse.Namespace) -> int:
 def command_guard_inspect_script(args: argparse.Namespace) -> int:
     try:
         report = inspect_script(args.path)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    output_report(report, args.json)
+    return 0
+
+
+def command_guard_inspect_dir(args: argparse.Namespace) -> int:
+    try:
+        report = inspect_directory(args.path)
     except Exception as error:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1

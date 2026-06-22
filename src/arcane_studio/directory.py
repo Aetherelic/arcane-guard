@@ -47,10 +47,14 @@ def is_probably_text(path: Path) -> bool:
 
 def has_shell_shebang(path: Path) -> bool:
     try:
-        first_line = path.read_text(encoding="utf-8", errors="replace").splitlines()[0]
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except Exception:
         return False
 
+    if not lines:
+        return False
+
+    first_line = lines[0]
     return first_line.startswith("#!") and any(shell in first_line for shell in ["sh", "bash", "zsh", "fish"])
 
 
