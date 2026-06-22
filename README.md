@@ -37,4 +37,4 @@ Arcane Themes is paused while Arcane Guard is polished for a 0.1 release.
 - python -m venv .venv
 - source .venv/bin/activate
 - python -m pip install -e .
-- python -m unittest -v
+- python -m unittest discover -s tests -v
