@@ -398,7 +398,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Arcane Studio: safe customization tools for aesthetic Linux desktops.",
     )
 
-    parser.add_argument("--version", action="version", version=f"arcane-studio {__version__}")
+    parser.add_argument("--version", action="version", version=f"arcane-guard {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     guard = subparsers.add_parser("guard", help="Arcane Guard package/script safety tools")

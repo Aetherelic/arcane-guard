@@ -7,7 +7,7 @@ import json
 import shutil
 
 
-APP_STATE_DIR = Path.home() / ".local" / "state" / "arcane-studio"
+APP_STATE_DIR = Path.home() / ".local" / "state" / "arcane-guard"
 THEMES_STATE_DIR = APP_STATE_DIR / "themes"
 SNAPSHOT_DIR = THEMES_STATE_DIR / "snapshots"
 
