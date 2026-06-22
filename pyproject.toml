@@ -9,7 +9,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 
 [project.scripts]
-arcane = "arcane_studio.cli:main"
+arcane = "arcane_guard.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

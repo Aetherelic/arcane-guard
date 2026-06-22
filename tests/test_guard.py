@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from arcane_studio.directory import inspect_directory
-from arcane_studio.scanner import inspect_pkgbuild
-from arcane_studio.script import inspect_script
+from arcane_guard.directory import inspect_directory
+from arcane_guard.scanner import inspect_pkgbuild
+from arcane_guard.script import inspect_script
 
 
 class ArcaneGuardTests(unittest.TestCase):
