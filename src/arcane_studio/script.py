@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .scanner import read_text, risk_level, scan_text
+from .scanner import finding_counts, read_text, risk_level, risk_score, scan_text
 
 
 def inspect_script(path: str) -> dict:
@@ -27,5 +27,7 @@ def inspect_script(path: str) -> dict:
         },
         "install_script": None,
         "risk": risk_level(findings),
+        "score": risk_score(findings),
+        "counts": finding_counts(findings),
         "findings": findings,
     }

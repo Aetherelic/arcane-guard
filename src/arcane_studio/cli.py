@@ -54,6 +54,7 @@ def finding_to_dict(finding: Finding) -> dict:
         "line": finding.line,
         "evidence": finding.evidence,
         "advice": finding.advice,
+        "context": finding.context,
     }
 
 
@@ -64,6 +65,8 @@ def report_to_json(report: dict) -> dict:
         "metadata": report["metadata"],
         "install_script": report["install_script"],
         "risk": report["risk"],
+        "score": report.get("score", 0),
+        "counts": report.get("counts", {}),
         "findings": [finding_to_dict(f) for f in report["findings"]],
     }
 
@@ -74,11 +77,27 @@ def report_to_json(report: dict) -> dict:
     return data
 
 
+def format_counts(counts: dict) -> str:
+    parts = []
+
+    for severity in ["critical", "high", "medium", "low", "info"]:
+        count = counts.get(severity, 0)
+        if count:
+            parts.append(f"{count} {severity}")
+
+    if not parts:
+        return "0 findings"
+
+    return ", ".join(parts)
+
+
 def print_report(report: dict) -> None:
     metadata = report["metadata"]
     findings: list[Finding] = report["findings"]
     risk = report["risk"]
     kind = report.get("kind", "pkgbuild")
+    counts = report.get("counts", {})
+    score = report.get("score", 0)
 
     print()
     print(colour("Arcane Guard Report", BOLD + MAGENTA))
@@ -99,6 +118,8 @@ def print_report(report: dict) -> None:
 
     print(f"{colour('Type:', BOLD)} {kind}")
     print(f"{colour('Risk:', BOLD)} {colour(risk.upper(), severity_colour(risk))}")
+    print(f"{colour('Score:', BOLD)} {score}")
+    print(f"{colour('Findings:', BOLD)} {format_counts(counts)}")
     print(f"{colour('File:', BOLD)} {report['path']}")
 
     if report.get("aur_package"):
@@ -124,7 +145,7 @@ def print_report(report: dict) -> None:
         icon = severity_icon(finding.severity)
         sev = colour(finding.severity.upper(), severity_colour(finding.severity))
 
-        print(f"{icon} {sev} [{finding.rule}] line {finding.line}")
+        print(f"{icon} {sev} [{finding.rule}] line {finding.line} · {finding.context}")
         print(f"  {finding.message}")
         print(colour(f"  Evidence: {finding.evidence}", DIM))
         print(f"  Advice: {finding.advice}")
