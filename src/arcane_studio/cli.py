@@ -10,7 +10,7 @@ from .directory import inspect_directory
 from .directory import inspect_directory
 from .scanner import Finding, inspect_pkgbuild
 from .script import inspect_script
-from .themes import list_snapshots, snapshot_current, status as themes_status
+from .themes import list_snapshots, restore_snapshot, snapshot_current, status as themes_status
 
 
 RESET = "\033[0m"
@@ -320,6 +320,60 @@ def command_themes_list(args: argparse.Namespace) -> int:
         print(f"  Copied:  {snapshot['copied_count']}")
         print(f"  Skipped: {snapshot['skipped_count']}")
         print(f"  Path:    {snapshot['path']}")
+        print()
+
+    return 0
+
+
+def command_themes_restore(args: argparse.Namespace) -> int:
+    try:
+        result = restore_snapshot(args.snapshot, apply=args.yes)
+    except Exception as error:
+        print(f"arcane: error: {error}", file=sys.stderr)
+        return 1
+
+    print()
+    print(colour("Arcane Themes Restore", BOLD + MAGENTA))
+    print(colour("━━━━━━━━━━━━━━━━━━━━━", MAGENTA))
+    print()
+    print(f"{colour('Snapshot:', BOLD)} {result['snapshot']}")
+    print(f"{colour('Snapshot path:', BOLD)} {result['snapshot_path']}")
+    print(f"{colour('Mode:', BOLD)} {'apply' if result['apply'] else 'dry-run'}")
+    print()
+
+    if result["planned"]:
+        print(colour("Restore plan", BOLD))
+        print(colour("────────────", DIM))
+        for item in result["planned"]:
+            marker = "overwrite" if item["exists_now"] else "create"
+            print(f"• {item['path']} [{item['kind']}] → {marker}")
+        print()
+    else:
+        print("Nothing to restore.")
+        print()
+
+    if result["missing"]:
+        print(colour("Missing from snapshot", BOLD))
+        print(colour("─────────────────────", DIM))
+        for item in result["missing"]:
+            print(f"• {item['path']} [{item['reason']}]")
+        print()
+
+    if result["apply"]:
+        if result["safety_snapshot"]:
+            print(colour("Safety snapshot created before restore:", BOLD))
+            print(f"  {result['safety_snapshot']['snapshot']}")
+            print(f"  {result['safety_snapshot']['path']}")
+            print()
+
+        print(colour("Restored", BOLD))
+        print(colour("────────", DIM))
+        for item in result["restored"]:
+            print(f"✓ {item['path']} [{item['kind']}]")
+        print()
+    else:
+        print(colour("Dry-run only.", BOLD))
+        print("Re-run with --yes to restore this snapshot.")
         print()
 
     return 0

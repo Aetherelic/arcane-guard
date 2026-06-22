@@ -173,3 +173,95 @@ def status() -> dict:
             for target in targets
         ],
     }
+
+
+def get_snapshot(name: str) -> Path:
+    ensure_state_dirs()
+
+    if "/" in name or "\\" in name or name.strip() in {"", ".", ".."}:
+        raise ValueError(f"Invalid snapshot name: {name}")
+
+    snapshot = SNAPSHOT_DIR / name
+
+    if not snapshot.exists() or not snapshot.is_dir():
+        raise FileNotFoundError(f"No such snapshot: {name}")
+
+    manifest = snapshot / "manifest.json"
+    files = snapshot / "files"
+
+    if not manifest.exists() or not files.exists():
+        raise FileNotFoundError(f"Snapshot is incomplete or invalid: {name}")
+
+    return snapshot
+
+
+def load_snapshot_manifest(snapshot: Path) -> dict:
+    manifest_path = snapshot / "manifest.json"
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def restore_snapshot(name: str, apply: bool = False) -> dict:
+    snapshot = get_snapshot(name)
+    manifest = load_snapshot_manifest(snapshot)
+    files_root = snapshot / "files"
+
+    planned: list[dict] = []
+    restored: list[dict] = []
+    missing: list[dict] = []
+
+    for item in manifest.get("copied", []):
+        relative = item["path"]
+        source = files_root / relative
+        destination = Path.home() / relative
+
+        if not source.exists():
+            missing.append({"path": relative, "reason": "missing-from-snapshot"})
+            continue
+
+        planned.append(
+            {
+                "path": relative,
+                "kind": item.get("kind", "unknown"),
+                "source": str(source),
+                "destination": str(destination),
+                "exists_now": destination.exists(),
+            }
+        )
+
+    safety_snapshot = None
+
+    if apply and planned:
+        safety_snapshot = snapshot_current(name=f"pre-restore-{make_snapshot_name()}")
+
+        for item in planned:
+            source = Path(item["source"])
+            destination = Path(item["destination"])
+            destination.parent.mkdir(parents=True, exist_ok=True)
+
+            if destination.exists() or destination.is_symlink():
+                if destination.is_dir() and not destination.is_symlink():
+                    shutil.rmtree(destination)
+                else:
+                    destination.unlink()
+
+            if source.is_dir():
+                shutil.copytree(source, destination, symlinks=True)
+            else:
+                shutil.copy2(source, destination)
+
+            restored.append(
+                {
+                    "path": item["path"],
+                    "kind": item["kind"],
+                }
+            )
+
+    return {
+        "snapshot": name,
+        "snapshot_path": str(snapshot),
+        "apply": apply,
+        "planned": planned,
+        "restored": restored,
+        "missing": missing,
+        "safety_snapshot": safety_snapshot,
+    }
