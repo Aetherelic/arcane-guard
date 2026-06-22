@@ -6,6 +6,34 @@ It scans AUR packages, PKGBUILDs, install scripts, and dotfiles for suspicious o
 
 Arcane Guard is a heuristic review assistant. It does not prove code is safe or malicious, and clean output does not mean a script or package is safe. It highlights common red flags and patterns worth reviewing before you run unknown code.
 
+
+## Installation
+
+### From GitHub
+
+Until AUR publishing is available, the recommended install method is `pipx`:
+
+- sudo pacman -S --needed git python python-pipx
+- pipx ensurepath
+- git clone https://github.com/Aetherelic/arcane-guard.git
+- cd arcane-guard
+- pipx install .
+
+Restart your terminal, then test:
+
+- arcane --version
+- arcane guard inspect-aur yay-bin
+
+### AUR
+
+AUR publishing is planned under:
+
+- arcane-guard-git
+
+Once available, it will install with:
+
+- yay -S arcane-guard-git
+
 ## Commands
 
 - arcane guard inspect ./PKGBUILD
@@ -57,3 +85,10 @@ Arcane Guard is not an antivirus, sandbox, or malware detector.
 It is a static heuristic scanner. It can catch common dangerous patterns, but it can be bypassed by obfuscation, unusual shell syntax, variables, sourced files, encoded commands, or logic spread across multiple files.
 
 Use Arcane Guard as a review assistant, not as a guarantee.
+
+
+## Rule documentation
+
+Detailed rule explanations are available in:
+
+- docs/rules.md
