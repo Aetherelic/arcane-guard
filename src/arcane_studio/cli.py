@@ -7,7 +7,6 @@ import sys
 from . import __version__
 from .aur import inspect_aur_package
 from .directory import inspect_directory
-from .directory import inspect_directory
 from .scanner import Finding, inspect_pkgbuild
 from .script import inspect_script
 from .themes import list_snapshots, restore_snapshot, snapshot_current, status as themes_status
@@ -92,13 +91,10 @@ def format_counts(counts: dict) -> str:
         if count:
             parts.append(f"{count} {severity}")
 
-    if not parts:
-        return "0 findings"
-
-    return ", ".join(parts)
+    return ", ".join(parts) if parts else "0 findings"
 
 
-def print_report(report: dict) -> None:
+def print_guard_report(report: dict) -> None:
     metadata = report["metadata"]
     findings: list[Finding] = report["findings"]
     risk = report["risk"]
@@ -114,7 +110,6 @@ def print_report(report: dict) -> None:
     name = metadata.get("pkgname", "unknown")
     version = metadata.get("pkgver", "unknown")
     description = metadata.get("pkgdesc", "").strip("'\"")
-
     label = "Target" if kind in {"script", "directory"} else "Package"
 
     print(f"{colour(label + ':', BOLD)} {name}")
@@ -168,7 +163,6 @@ def print_report(report: dict) -> None:
     for finding in findings:
         icon = severity_icon(finding.severity)
         sev = colour(finding.severity.upper(), severity_colour(finding.severity))
-
         print(f"{icon} {sev} [{finding.rule}] line {finding.line} · {finding.context}")
         print(f"  {finding.message}")
         print(colour(f"  Evidence: {finding.evidence}", DIM))
@@ -188,11 +182,11 @@ def print_report(report: dict) -> None:
     print()
 
 
-def output_report(report: dict, as_json: bool) -> None:
+def output_guard_report(report: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(report_to_json(report), indent=2))
     else:
-        print_report(report)
+        print_guard_report(report)
 
 
 def command_guard_inspect(args: argparse.Namespace) -> int:
@@ -202,7 +196,7 @@ def command_guard_inspect(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_report(report, args.json)
+    output_guard_report(report, args.json)
     return 0
 
 
@@ -213,7 +207,7 @@ def command_guard_inspect_aur(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_report(report, args.json)
+    output_guard_report(report, args.json)
     return 0
 
 
@@ -224,7 +218,7 @@ def command_guard_inspect_script(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_report(report, args.json)
+    output_guard_report(report, args.json)
     return 0
 
 
@@ -235,20 +229,8 @@ def command_guard_inspect_dir(args: argparse.Namespace) -> int:
         print(f"arcane: error: {error}", file=sys.stderr)
         return 1
 
-    output_report(report, args.json)
+    output_guard_report(report, args.json)
     return 0
-
-
-def command_guard_inspect_dir(args: argparse.Namespace) -> int:
-    try:
-        report = inspect_directory(args.path)
-    except Exception as error:
-        print(f"arcane: error: {error}", file=sys.stderr)
-        return 1
-
-    output_report(report, args.json)
-    return 0
-
 
 
 def command_themes_status(args: argparse.Namespace) -> int:
@@ -266,8 +248,7 @@ def command_themes_status(args: argparse.Namespace) -> int:
 
     for target in report["targets"]:
         icon = "✓" if target["exists"] else "·"
-        kind = target["kind"]
-        print(f"{icon} {target['path']} [{kind}]")
+        print(f"{icon} {target['path']} [{target['kind']}]")
 
     print()
     return 0
@@ -288,6 +269,7 @@ def command_themes_snapshot(args: argparse.Namespace) -> int:
     print(f"{colour('Path:', BOLD)} {result['path']}")
     print()
     print(f"{colour('Copied:', BOLD)} {len(result['copied'])}")
+
     for item in result["copied"]:
         print(f"✓ {item['path']} [{item['kind']}]")
 
@@ -378,37 +360,18 @@ def command_themes_restore(args: argparse.Namespace) -> int:
 
     return 0
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="arcane",
         description="Arcane Studio: safe customization tools for aesthetic Linux desktops.",
     )
 
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"arcane-studio {__version__}",
-    )
-
+    parser.add_argument("--version", action="version", version=f"arcane-studio {__version__}")
     subparsers = parser.add_subparsers(dest="command")
 
     guard = subparsers.add_parser("guard", help="Arcane Guard package/script safety tools")
     guard_subparsers = guard.add_subparsers(dest="guard_command")
-
-
-    themes = subparsers.add_parser("themes", help="Arcane Themes rice/theme management tools")
-    themes_subparsers = themes.add_subparsers(dest="themes_command")
-
-    themes_status_parser = themes_subparsers.add_parser("status", help="Show managed theme targets")
-    themes_status_parser.set_defaults(func=command_themes_status)
-
-    themes_snapshot_parser = themes_subparsers.add_parser("snapshot", help="Snapshot current rice/theme configs")
-    themes_snapshot_parser.add_argument("--name", help="Optional snapshot name")
-    themes_snapshot_parser.set_defaults(func=command_themes_snapshot)
-
-    themes_list_parser = themes_subparsers.add_parser("list", help="List Arcane Themes snapshots")
-    themes_list_parser.set_defaults(func=command_themes_list)
-
 
     inspect = guard_subparsers.add_parser("inspect", help="Inspect a local PKGBUILD")
     inspect.add_argument("path", help="Path to a PKGBUILD")
@@ -429,6 +392,24 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_dir_parser.add_argument("path", help="Path to a directory")
     inspect_dir_parser.add_argument("--json", action="store_true", help="Output report as JSON")
     inspect_dir_parser.set_defaults(func=command_guard_inspect_dir)
+
+    themes = subparsers.add_parser("themes", help="Arcane Themes rice/theme management tools")
+    themes_subparsers = themes.add_subparsers(dest="themes_command")
+
+    themes_status_parser = themes_subparsers.add_parser("status", help="Show managed theme targets")
+    themes_status_parser.set_defaults(func=command_themes_status)
+
+    themes_snapshot_parser = themes_subparsers.add_parser("snapshot", help="Snapshot current rice/theme configs")
+    themes_snapshot_parser.add_argument("--name", help="Optional snapshot name")
+    themes_snapshot_parser.set_defaults(func=command_themes_snapshot)
+
+    themes_list_parser = themes_subparsers.add_parser("list", help="List Arcane Themes snapshots")
+    themes_list_parser.set_defaults(func=command_themes_list)
+
+    themes_restore_parser = themes_subparsers.add_parser("restore", help="Restore an Arcane Themes snapshot")
+    themes_restore_parser.add_argument("snapshot", help="Snapshot name to restore")
+    themes_restore_parser.add_argument("--yes", action="store_true", help="Actually restore files. Without this, Arcane Themes only shows a dry-run.")
+    themes_restore_parser.set_defaults(func=command_themes_restore)
 
     return parser
 
