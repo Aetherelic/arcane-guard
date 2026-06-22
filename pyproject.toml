@@ -1,5 +1,5 @@
 [project]
-name = "arcane-studio"
+name = "arcane-guard"
 version = "0.1.0"
 description = "Safe customization tools for aesthetic Linux desktops."
 readme = "README.md"
